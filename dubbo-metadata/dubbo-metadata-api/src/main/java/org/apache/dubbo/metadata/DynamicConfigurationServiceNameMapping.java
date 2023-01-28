@@ -35,7 +35,7 @@ import static org.apache.dubbo.rpc.model.ApplicationModel.getName;
 /**
  * The {@link ServiceNameMapping} implementation based on {@link DynamicConfiguration}
  */
-public class DynamicConfigurationServiceNameMapping implements ServiceNameMapping {
+public class  DynamicConfigurationServiceNameMapping implements ServiceNameMapping {
 
     public static String DEFAULT_MAPPING_GROUP = "mapping";
 

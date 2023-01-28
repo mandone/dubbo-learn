@@ -931,6 +931,7 @@ public class URLTest {
     @Test
     public void testGetParameter() {
         URL url = URL.valueOf("http://127.0.0.1:8080/path?i=1&b=false");
+        url.getParameter("client", url.getParameter("transporter", "netty"));
         assertEquals(Integer.valueOf(1), url.getParameter("i", Integer.class));
         assertEquals(Boolean.FALSE, url.getParameter("b", Boolean.class));
     }

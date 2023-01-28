@@ -545,6 +545,9 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                 .setHost(LOCALHOST_VALUE)
                 .setPort(0)
                 .build();
+        /**
+         * org.apache.dubbo.rpc.Protocol extension = (org.apache.dubbo.rpc.Protocol) ExtensionLoader.getExtensionLoader(org.apache.dubbo.rpc.Protocol.class).getExtension(extName);
+         */
         Exporter<?> exporter = PROTOCOL.export(
                 PROXY_FACTORY.getInvoker(ref, (Class) interfaceClass, local));
         exporters.add(exporter);

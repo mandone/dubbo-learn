@@ -51,7 +51,7 @@ public class JCache implements org.apache.dubbo.cache.Cache {
         // jcache parameter is the full-qualified class name of SPI implementation
         String type = url.getParameter("jcache");
 
-        CachingProvider provider = StringUtils.isEmpty(type) ? Caching.getCachingProvider() : Caching.getCachingProvider(type);
+        CachingProvider provider = StringUtils.isEmpty(type) ? Caching.getCachingProvider() : Caching.  getCachingProvider(type);
         CacheManager cacheManager = provider.getCacheManager();
         Cache<Object, Object> cache = cacheManager.getCache(key);
         if (cache == null) {

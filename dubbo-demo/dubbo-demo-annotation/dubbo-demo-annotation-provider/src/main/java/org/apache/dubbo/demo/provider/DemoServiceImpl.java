@@ -36,6 +36,12 @@ public class DemoServiceImpl implements DemoService {
     }
 
     @Override
+    public String sayHi(String name) {
+        logger.info("Hi " + name + ", request from consumer: " + RpcContext.getContext().getRemoteAddress());
+        return "Hi " + name + ", response from provider: " + RpcContext.getContext().getLocalAddress();
+    }
+
+    @Override
     public CompletableFuture<String> sayHelloAsync(String name) {
         return null;
     }

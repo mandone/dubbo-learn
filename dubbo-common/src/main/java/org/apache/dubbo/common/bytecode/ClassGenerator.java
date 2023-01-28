@@ -184,6 +184,16 @@ public final class ClassGenerator {
         return addMethod(name, mod, rt, pts, null, body);
     }
 
+    /**
+     *
+     * @param name : 方法名
+     * @param mod :修饰符号
+     * @param rt ：返回类型
+     * @param pts：参数类型集合
+     * @param ets:一场类型
+     * @param body：代码
+     * @return ：generator
+     */
     public ClassGenerator addMethod(String name, int mod, Class<?> rt, Class<?>[] pts, Class<?>[] ets,
                                     String body) {
         StringBuilder sb = new StringBuilder();

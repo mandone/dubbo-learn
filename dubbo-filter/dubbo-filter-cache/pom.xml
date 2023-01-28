@@ -40,6 +40,11 @@
             <artifactId>cache-api</artifactId>
         </dependency>
         <dependency>
+            <groupId>org.redisson</groupId>
+            <artifactId>redisson</artifactId>
+            <version>3.16.4</version>
+        </dependency>
+        <dependency>
             <groupId>com.hazelcast</groupId>
             <artifactId>hazelcast</artifactId>
             <scope>test</scope>

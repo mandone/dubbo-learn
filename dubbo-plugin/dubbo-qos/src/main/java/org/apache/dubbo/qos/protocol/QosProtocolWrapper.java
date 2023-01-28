@@ -17,6 +17,8 @@
 package org.apache.dubbo.qos.protocol;
 
 import org.apache.dubbo.common.URL;
+import org.apache.dubbo.common.extension.Activate;
+import org.apache.dubbo.common.extension.Adaptive;
 import org.apache.dubbo.common.logger.Logger;
 import org.apache.dubbo.common.logger.LoggerFactory;
 import org.apache.dubbo.common.utils.UrlUtils;
@@ -36,7 +38,7 @@ import static org.apache.dubbo.common.constants.QosConstants.QOS_ENABLE;
 import static org.apache.dubbo.common.constants.QosConstants.QOS_HOST;
 import static org.apache.dubbo.common.constants.QosConstants.QOS_PORT;
 
-
+@Activate(order = 300)
 public class QosProtocolWrapper implements Protocol {
 
     private final Logger logger = LoggerFactory.getLogger(QosProtocolWrapper.class);

@@ -54,6 +54,7 @@ public class FutureFilter implements Filter, Filter.Listener {
 
     @Override
     public void onResponse(Result result, Invoker<?> invoker, Invocation invocation) {
+        // 触发回调方法
         if (result.hasException()) {
             fireThrowCallback(invoker, invocation, result.getException());
         } else {
@@ -66,6 +67,7 @@ public class FutureFilter implements Filter, Filter.Listener {
         fireThrowCallback(invoker, invocation, t);
     }
 
+    // 触发前置方法
     private void fireInvokeCallback(final Invoker<?> invoker, final Invocation invocation) {
         final AsyncMethodInfo asyncMethodInfo = getAsyncMethodInfo(invoker, invocation);
         if (asyncMethodInfo == null) {

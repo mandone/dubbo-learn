@@ -1022,6 +1022,7 @@ public class DubboBootstrap {
             if (!configCenter.checkOrUpdateInited()) {
                 return null;
             }
+            //配置 -> url
             DynamicConfiguration dynamicConfiguration = getDynamicConfiguration(configCenter.toUrl());
             String configContent = dynamicConfiguration.getProperties(configCenter.getConfigFile(), configCenter.getGroup());
 

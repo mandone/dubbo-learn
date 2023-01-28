@@ -34,7 +34,29 @@ public class HashedWheelTimerTest {
     private static class EmptyTask implements TimerTask {
         @Override
         public void run(Timeout timeout) {
+            System.out.println("test hashedWheelTimerTest succeed");
         }
+    }
+
+
+    private static class TestMyTask implements TimerTask {
+        @Override
+        public void run(Timeout timeout) {
+            System.out.println("test hashedWheelTimerTest succeed");
+        }
+    }
+
+
+    @Test
+    public void testMyTask() throws Exception {
+        HashedWheelTimer hashedWheelTimer =
+                new HashedWheelTimer(new NamedThreadFactory("dubbo-future-timeout", true),
+                        10, TimeUnit.MILLISECONDS, 8, 8);
+        Timeout timeout = hashedWheelTimer.newTimeout(new TestMyTask(), 10, TimeUnit.SECONDS);
+        Timer timer = timeout.timer();
+        TimerTask task = timeout.task();
+        task.run(timeout);
+
     }
 
     private static class BlockTask implements TimerTask {

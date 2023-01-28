@@ -21,9 +21,15 @@ import java.util.concurrent.CompletableFuture;
 public interface DemoService {
 
     String sayHello(String name);
+    String sayHi(String name);
 
     default CompletableFuture<String> sayHelloAsync(String name) {
         return CompletableFuture.completedFuture(sayHello(name));
     }
+
+    default CompletableFuture<String> sayHiAsync(String name) {
+        return CompletableFuture.completedFuture(sayHello(name));
+    }
+
 
 }

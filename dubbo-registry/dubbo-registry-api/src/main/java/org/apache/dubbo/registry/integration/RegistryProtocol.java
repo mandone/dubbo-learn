@@ -481,6 +481,7 @@ public class RegistryProtocol implements Protocol {
 
     protected <T> Invoker<T> doRefer(Cluster cluster, Registry registry, Class<T> type, URL url, Map<String, String> parameters) {
         URL consumerUrl = new URL(CONSUMER_PROTOCOL, parameters.remove(REGISTER_IP_KEY), 0, type.getName(), parameters);
+        //参数整合成对象
         ClusterInvoker<T> migrationInvoker = getMigrationInvoker(this, cluster, registry, type, url, consumerUrl);
         return interceptInvoker(migrationInvoker, url, consumerUrl);
     }
@@ -491,6 +492,7 @@ public class RegistryProtocol implements Protocol {
     }
 
     protected <T> Invoker<T> interceptInvoker(ClusterInvoker<T> invoker, URL url, URL consumerUrl) {
+        //migrateInvoker -> migrateRuleListener -> migrateRuleHandler
         List<RegistryProtocolListener> listeners = findRegistryProtocolListeners(url);
         if (CollectionUtils.isEmpty(listeners)) {
             return invoker;
@@ -521,11 +523,13 @@ public class RegistryProtocol implements Protocol {
         URL urlToRegistry = new URL(CONSUMER_PROTOCOL, parameters.remove(REGISTER_IP_KEY), 0, type.getName(), parameters);
         if (directory.isShouldRegister()) {
             directory.setRegisteredConsumerUrl(urlToRegistry);
+            //将consumer地址注册到注册中心
             registry.register(directory.getRegisteredConsumerUrl());
         }
         directory.buildRouterChain(urlToRegistry);
+        //订阅除consumer之外的地址，providers,configurators,routers,订阅需要有listener,用于被订阅者回调notify
         directory.subscribe(toSubscribeUrl(urlToRegistry));
-
+        //将invoker加入到集群
         return (ClusterInvoker<T>) cluster.join(directory);
     }
 

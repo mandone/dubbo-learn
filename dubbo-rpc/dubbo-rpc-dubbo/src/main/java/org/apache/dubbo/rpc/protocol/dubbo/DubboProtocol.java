@@ -586,9 +586,9 @@ public class DubboProtocol extends AbstractProtocol {
 
         // client type setting.
         String str = url.getParameter(CLIENT_KEY, url.getParameter(SERVER_KEY, DEFAULT_REMOTING_CLIENT));
-
+        //编码
         url = url.addParameter(CODEC_KEY, DubboCodec.NAME);
-        // enable heartbeat by default
+        // 心跳
         url = url.addParameterIfAbsent(HEARTBEAT_KEY, String.valueOf(DEFAULT_HEARTBEAT));
 
         // BIO is not allowed since it has severe performance issue.
@@ -602,6 +602,7 @@ public class DubboProtocol extends AbstractProtocol {
         try {
             // connection should be lazy
             if (url.getParameter(LAZY_CONNECT_KEY, false)) {
+                // dubboInvoker.currentClient.request()真实调用
                 client = new LazyConnectExchangeClient(url, requestHandler);
 
             } else {

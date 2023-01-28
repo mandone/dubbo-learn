@@ -42,7 +42,7 @@ public abstract class AbstractConfiguratorListener implements ConfigurationListe
             GovernanceRuleRepository.class).getDefaultExtension();
 
     protected final void initWith(String key) {
-        ruleRepository.addListener(key, this);
+        ruleRepository.addListener(key, this);//org.apache.dubbo.demo.DemoService::.configurators
         String rawConfig = ruleRepository.getRule(key, DynamicConfiguration.DEFAULT_GROUP);
         if (!StringUtils.isEmpty(rawConfig)) {
             genConfiguratorsFromRawRule(rawConfig);

@@ -406,7 +406,7 @@ public abstract class AbstractRegistry implements Registry {
             logger.warn("Ignore empty notify urls for subscribe url " + url);
             return;
         }
-        if (logger.isInfoEnabled()) {
+        if (logger.isInfoEnabled()) {// Notify urls for subscribe url consumer://192.168.111.1/org.apache.dubbo.demo.DemoService?application=dubbo
             logger.info("Notify urls for subscribe url " + url + ", urls: " + urls);
         }
         // keep every provider's category.
@@ -426,7 +426,7 @@ public abstract class AbstractRegistry implements Registry {
             String category = entry.getKey();
             List<URL> categoryList = entry.getValue();
             categoryNotified.put(category, categoryList);
-            listener.notify(categoryList);
+            listener.notify(categoryList);//真正执行notify
             // We will update our cache file after each notification.
             // When our Registry has a subscribe failure due to network jitter, we can return at least the existing cache URL.
             saveProperties(url);

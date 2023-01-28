@@ -63,6 +63,7 @@ public class MigrationInvoker<T> implements MigrationClusterInvoker<T> {
                             Class<T> type,
                             URL url,
                             URL consumerUrl) {
+        //空的 invoker
         this(null, null, registryProtocol, cluster, registry, type, url, consumerUrl);
     }
 
@@ -109,7 +110,9 @@ public class MigrationInvoker<T> implements MigrationClusterInvoker<T> {
     @Override
     public synchronized void migrateToServiceDiscoveryInvoker(boolean forceMigrate) {
         if (!forceMigrate) {
+            //刷新应用级别的invoker，registryProtocol.getServiceDiscoveryInvoker -> doCreateInvoker
             refreshServiceDiscoveryInvoker();
+            //刷新接口级别的invoker，registryProtocol.getInvoker ->doCreateInvoker
             refreshInterfaceInvoker();
             setListener(invoker, () -> {
                 this.compareAddresses(serviceDiscoveryInvoker, invoker);

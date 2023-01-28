@@ -179,7 +179,7 @@ public class ZookeeperRegistry extends FailbackRegistry {
                             urls.addAll(toUrlsWithEmpty(url, path, children));
                         }
                     }
-                    notify(url, listener, urls);
+                    notify(url, listener, urls);//订阅后携带listener通知，有新的订阅者
                 } finally {
                     // tells the listener to run only after the sync notification of main thread finishes.
                     latch.countDown();

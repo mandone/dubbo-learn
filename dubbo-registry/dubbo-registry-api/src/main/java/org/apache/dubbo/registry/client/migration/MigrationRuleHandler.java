@@ -55,14 +55,14 @@ public class MigrationRuleHandler<T> {
         } else {
             switch (rule.getStep()) {
                 case APPLICATION_FIRST:
-                    migrationInvoker.migrateToServiceDiscoveryInvoker(false);
+                    migrationInvoker.migrateToServiceDiscoveryInvoker(false);//仅消费应用级
                     break;
                 case FORCE_APPLICATION:
-                    migrationInvoker.migrateToServiceDiscoveryInvoker(true);
+                    migrationInvoker.migrateToServiceDiscoveryInvoker(true);//消费应用级和接口级
                     break;
                 case FORCE_INTERFACE:
                 default:
-                    migrationInvoker.fallbackToInterfaceInvoker();
+                    migrationInvoker.fallbackToInterfaceInvoker();//仅消费接口应用级
             }
         }
     }

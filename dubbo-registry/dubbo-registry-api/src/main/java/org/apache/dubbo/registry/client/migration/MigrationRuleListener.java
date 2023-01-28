@@ -42,7 +42,7 @@ import static org.apache.dubbo.common.constants.RegistryConstants.INIT;
 public class MigrationRuleListener implements RegistryProtocolListener, ConfigurationListener {
     private static final Logger logger = LoggerFactory.getLogger(MigrationRuleListener.class);
 
-    private Set<MigrationRuleHandler> listeners = new ConcurrentHashSet<>();
+    private Set<MigrationRuleHandler> handlers = new ConcurrentHashSet<>();
     private DynamicConfiguration configuration;
 
     private volatile String rawRule;
@@ -83,8 +83,8 @@ public class MigrationRuleListener implements RegistryProtocolListener, Configur
         logger.info("Using the following migration rule to migrate:");
         logger.info(rawRule);
 
-        if (CollectionUtils.isNotEmpty(listeners)) {
-            listeners.forEach(listener -> listener.doMigrate(rawRule));
+        if (CollectionUtils.isNotEmpty(handlers)) {
+            handlers.forEach(listener -> listener.doMigrate(rawRule));
         }
     }
 
@@ -97,10 +97,10 @@ public class MigrationRuleListener implements RegistryProtocolListener, Configur
     public synchronized void onRefer(RegistryProtocol registryProtocol, ClusterInvoker<?> invoker, URL url) {
         MigrationInvoker<?> migrationInvoker = (MigrationInvoker<?>) invoker;
 
-        MigrationRuleHandler<?> migrationListener = new MigrationRuleHandler<>(migrationInvoker);
-        listeners.add(migrationListener);
+        MigrationRuleHandler<?> migrationRuleHandler = new MigrationRuleHandler<>(migrationInvoker);
+        handlers.add(migrationRuleHandler);
 
-        migrationListener.doMigrate(rawRule);
+        migrationRuleHandler.doMigrate(rawRule);
     }
 
     @Override
