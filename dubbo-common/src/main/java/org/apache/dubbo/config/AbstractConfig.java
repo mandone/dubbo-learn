@@ -127,6 +127,9 @@ public abstract class AbstractConfig implements Serializable {
             try {
                 String name = method.getName();
                 if (MethodUtils.isGetter(method)) {
+                    /**
+                     * @see org.apache.dubbo.config.support.Parameter
+                     */
                     Parameter parameter = method.getAnnotation(Parameter.class);
                     if (method.getReturnType() == Object.class || parameter != null && parameter.excluded()) {
                         continue;
@@ -134,9 +137,9 @@ public abstract class AbstractConfig implements Serializable {
                     String key;
                     if (parameter != null && parameter.key().length() > 0) {
                         key = parameter.key();
-                    } else {
+                    } else {//严格按照驼峰将get后面的字段名取出来
                         key = calculatePropertyFromGetter(name);
-                    }
+                    }//执行getName方法
                     Object value = method.invoke(config);
                     String str = String.valueOf(value).trim();
                     if (value != null && str.length() > 0) {
@@ -470,12 +473,13 @@ public abstract class AbstractConfig implements Serializable {
     public void refresh() {
         Environment env = ApplicationModel.getEnvironment();
         try {
+            //读取配置类，包括系统配置，内存配置，配置文件等
             CompositeConfiguration compositeConfiguration = env.getPrefixedConfiguration(this);
-            // loop methods, get override value and set the new value back to method
+            // loop methods, get override value and set the new value back to method，使用反射实现注入
             Method[] methods = getClass().getMethods();
             for (Method method : methods) {
                 if (MethodUtils.isSetter(method)) {
-                    try {
+                    try {//读取和当前实现类配置相关的配置
                         String value = StringUtils.trim(compositeConfiguration.getString(extractPropertyName(getClass(), method)));
                         // isTypeMatch() is called to avoid duplicate and incorrect update, for example, we have two 'setGeneric' methods in ReferenceConfig.
                         if (StringUtils.isNotEmpty(value) && ClassUtils.isTypeMatch(method.getParameterTypes()[0], value)) {

@@ -30,16 +30,36 @@ import java.lang.annotation.Target;
 @Target({ElementType.METHOD})
 public @interface Parameter {
 
+    /**
+     * 键名
+     */
     String key() default "";
 
+    /**
+     * 是否必填
+     */
     boolean required() default false;
 
+    /**
+     * 是否忽略
+     */
     boolean excluded() default false;
 
+    /**
+     * 是否转移
+     */
     boolean escaped() default false;
 
+    /**
+     * 是否作为属性,当前仅应用在事件通知
+     * <dubbo:method name="get" async="true" onreturn = "xx" onthrow="xx" />
+     */
     boolean attribute() default false;
 
+    /**
+     * 是否拼接
+     * str = pre + "," + str;使用,对属性值进行拼接
+     */
     boolean append() default false;
 
     /**

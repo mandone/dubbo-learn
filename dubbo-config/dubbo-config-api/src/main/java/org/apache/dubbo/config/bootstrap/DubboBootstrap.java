@@ -114,6 +114,7 @@ import static org.apache.dubbo.registry.support.AbstractRegistryFactory.getServi
 import static org.apache.dubbo.remoting.Constants.CLIENT_KEY;
 
 /**
+ * Dubbo 启动类
  * See {@link ApplicationModel} and {@link ExtensionLoader} for why this class is designed to be singleton.
  * <p>
  * The bootstrap class of Dubbo
@@ -515,16 +516,24 @@ public class DubboBootstrap {
         if (!initialized.compareAndSet(false, true)) {
             return;
         }
-
+        //通过spi加载所有FrameworkExt,执行initialize()方法，真正执行的只有Environment这个实现类，
+        // 使用默认的配置中心对象对ExternalConfigMap和AppExternalConfigMap进行设置
         ApplicationModel.initFrameworkExts();
-
+        //启动配置中心
         startConfigCenter();
 
+        /**
+         * 根据前文更新后的 externalConfigurationMap 和 appExternalConfigurationMap 配置信息，确定是否配置了额外的注册中心或 Protocol，
+         * 如果有，则在此处转换成 RegistryConfig 和 ProtocolConfig，并记录到 ConfigManager 中，等待后续逻辑使用。
+         */
         loadRemoteConfigs();
-
+        /**
+         *  全局配置检查，抛异常,多数都是从configManeger中获取，使用正则判断property数据
+         *  元数据配置、provider、consumer、monitor、metrics、module、ssl等
+         */
         checkGlobalConfigs();
 
-        // @since 2.7.8
+        // @since 2.7.8 创建和初始化元数据服务
         startMetadataCenter();
 
         initMetadataService();
@@ -535,11 +544,13 @@ public class DubboBootstrap {
     }
 
     private void checkGlobalConfigs() {
-        // check Application
+        // applicationName不能为空，
+        // checkProperty() -> checkProperty() 校验长度和正则表达式是否匹配 [\-._0-9a-zA-Z]+
         ConfigValidationUtils.validateApplicationConfig(getApplication());
 
         // check Metadata
         Collection<MetadataReportConfig> metadatas = configManager.getMetadataConfigs();
+        //元数据为空，创建默认的元数据配置类，刷新，加入到configManager配置管理类中
         if (CollectionUtils.isEmpty(metadatas)) {
             MetadataReportConfig metadataReportConfig = new MetadataReportConfig();
             metadataReportConfig.refresh();
@@ -548,6 +559,7 @@ public class DubboBootstrap {
                 metadatas = configManager.getMetadataConfigs();
             }
         }
+        //如果元数据不为空，单独对元数据进行校验
         if (CollectionUtils.isNotEmpty(metadatas)) {
             for (MetadataReportConfig metadataReportConfig : metadatas) {
                 metadataReportConfig.refresh();
@@ -555,7 +567,7 @@ public class DubboBootstrap {
             }
         }
 
-        // check Provider
+        // 校验provider
         Collection<ProviderConfig> providers = configManager.getProviders();
         if (CollectionUtils.isEmpty(providers)) {
             configManager.getDefaultProvider().orElseGet(() -> {
@@ -568,7 +580,7 @@ public class DubboBootstrap {
         for (ProviderConfig providerConfig : configManager.getProviders()) {
             ConfigValidationUtils.validateProviderConfig(providerConfig);
         }
-        // check Consumer
+        // 校验 Consumer
         Collection<ConsumerConfig> consumers = configManager.getConsumers();
         if (CollectionUtils.isEmpty(consumers)) {
             configManager.getDefaultConsumer().orElseGet(() -> {
@@ -593,16 +605,16 @@ public class DubboBootstrap {
     }
 
     private void startConfigCenter() {
-
+        //是否需要作为元数据中心服务进行注册，如果是就执行configManager::addConfigCenter
         useRegistryAsConfigCenterIfNecessary();
 
         Collection<ConfigCenterConfig> configCenters = configManager.getConfigCenters();
 
-        // check Config Center
+        // check Config Center 如果在启动时没有添加配置中心相关的配置就会使用默认的配置
         if (CollectionUtils.isEmpty(configCenters)) {
             ConfigCenterConfig configCenterConfig = new ConfigCenterConfig();
             configCenterConfig.refresh();
-            if (configCenterConfig.isValid()) {
+            if (configCenterConfig.isValid()) {//是否有地址，没有返回false，有的话就进行封装，添加协议
                 configManager.addConfigCenter(configCenterConfig);
                 configCenters = configManager.getConfigCenters();
             }
@@ -663,17 +675,11 @@ public class DubboBootstrap {
             return;
         }
 
-        configManager
-                .getDefaultRegistries()
-                .stream()
-                .filter(this::isUsedRegistryAsConfigCenter)
-                .map(this::registryAsConfigCenter)
-                .forEach(configManager::addConfigCenter);
+        configManager.getDefaultRegistries().stream().filter(this::isUsedRegistryAsConfigCenter).map(this::registryAsConfigCenter).forEach(configManager::addConfigCenter);
     }
 
     private boolean isUsedRegistryAsConfigCenter(RegistryConfig registryConfig) {
-        return isUsedRegistryAsCenter(registryConfig, registryConfig::getUseAsConfigCenter, "config",
-                DynamicConfigurationFactory.class);
+        return isUsedRegistryAsCenter(registryConfig, registryConfig::getUseAsConfigCenter, "config", DynamicConfigurationFactory.class);
     }
 
     private ConfigCenterConfig registryAsConfigCenter(RegistryConfig registryConfig) {
@@ -717,18 +723,13 @@ public class DubboBootstrap {
             return;
         }
 
-        configManager
-                .getDefaultRegistries()
-                .stream()
-                .filter(this::isUsedRegistryAsMetadataCenter)
-                .map(this::registryAsMetadataCenter)
-                .forEach(configManager::addMetadataReport);
+        configManager.getDefaultRegistries().stream().filter(this::isUsedRegistryAsMetadataCenter)//是否需要作为元数据中心服务进行注册
+                .map(this::registryAsMetadataCenter).forEach(configManager::addMetadataReport);
 
     }
 
     private boolean isUsedRegistryAsMetadataCenter(RegistryConfig registryConfig) {
-        return isUsedRegistryAsCenter(registryConfig, registryConfig::getUseAsMetadataCenter, "metadata",
-                MetadataReportFactory.class);
+        return isUsedRegistryAsCenter(registryConfig, registryConfig::getUseAsMetadataCenter, "metadata", MetadataReportFactory.class);
     }
 
     /**
@@ -741,9 +742,7 @@ public class DubboBootstrap {
      * @return
      * @since 2.7.8
      */
-    private boolean isUsedRegistryAsCenter(RegistryConfig registryConfig, Supplier<Boolean> usedRegistryAsCenter,
-                                           String centerType,
-                                           Class<?> extensionClass) {
+    private boolean isUsedRegistryAsCenter(RegistryConfig registryConfig, Supplier<Boolean> usedRegistryAsCenter, String centerType, Class<?> extensionClass) {
         final boolean supported;
 
         Boolean configuredValue = usedRegistryAsCenter.get();
@@ -753,14 +752,12 @@ public class DubboBootstrap {
             String protocol = registryConfig.getProtocol();
             supported = supportsExtension(extensionClass, protocol);
             if (logger.isInfoEnabled()) {
-                logger.info(format("No value is configured in the registry, the %s extension[name : %s] %s as the %s center"
-                        , extensionClass.getSimpleName(), protocol, supported ? "supports" : "does not support", centerType));
+                logger.info(format("No value is configured in the registry, the %s extension[name : %s] %s as the %s center", extensionClass.getSimpleName(), protocol, supported ? "supports" : "does not support", centerType));
             }
         }
 
         if (logger.isInfoEnabled()) {
-            logger.info(format("The registry[%s] will be %s as the %s center", registryConfig,
-                    supported ? "used" : "not used", centerType));
+            logger.info(format("The registry[%s] will be %s as the %s center", registryConfig, supported ? "used" : "not used", centerType));
         }
         return supported;
     }
@@ -876,25 +873,31 @@ public class DubboBootstrap {
      * Start the bootstrap
      */
     public DubboBootstrap start() {
-        if (started.compareAndSet(false, true)) {
+        if (started.compareAndSet(false, true)) {//使用cas，保证只有一个线程可以执行且只执行一次
             destroyed.set(false);
             ready.set(false);
+            //初始化DubboBootstrap
             initialize();
             if (logger.isInfoEnabled()) {
                 logger.info(NAME + " is starting...");
             }
-            // 1. export Dubbo Services
+            // 1. //服务发布
             exportServices();
 
-            // Not only provider register
+            // Not only provider register 如果有已经发布的服务，会发布元数据服务信息
             if (!isOnlyRegisterProvider() || hasExportedServices()) {
-                // 2. export MetadataService
+                // 2. export MetadataService 将metadata 作为一个dubbo服务发布出去，用于服务自省
                 exportMetadataService();
-                //3. Register the local ServiceInstance if required
+                //3. Register the local ServiceInstance if required 将serviceInstance注册到注册中心，这里的serviceInstance是应用级别，通用适用于服务自省方案中
                 registerServiceInstance();
             }
-
+            //服务引用配置缓存
             referServices();
+            /**
+             * 如果事使用的异步发布和引用,使用future，等待
+             * CompletableFuture future = CompletableFuture.allOf(asyncExportingFutures.toArray(new CompletableFuture[0]));
+             * future.get();
+             */
             if (asyncExportingFutures.size() > 0) {
                 new Thread(() -> {
                     try {
@@ -1029,10 +1032,7 @@ public class DubboBootstrap {
             String appGroup = getApplication().getName();
             String appConfigContent = null;
             if (isNotEmpty(appGroup)) {
-                appConfigContent = dynamicConfiguration.getProperties
-                        (isNotEmpty(configCenter.getAppConfigFile()) ? configCenter.getAppConfigFile() : configCenter.getConfigFile(),
-                                appGroup
-                        );
+                appConfigContent = dynamicConfiguration.getProperties(isNotEmpty(configCenter.getAppConfigFile()) ? configCenter.getAppConfigFile() : configCenter.getConfigFile(), appGroup);
             }
             try {
                 environment.setConfigCenterFirst(configCenter.isHighestPriority());
@@ -1069,11 +1069,12 @@ public class DubboBootstrap {
     }
 
     private void exportServices() {
+        //遍历configManager中所有的service进行发布
         configManager.getServices().forEach(sc -> {
             // TODO, compatible with ServiceConfig.export()
             ServiceConfig serviceConfig = (ServiceConfig) sc;
             serviceConfig.setBootstrap(this);
-
+            //通过bootstrap.exportAsync();进行设置
             if (exportAsync) {
                 ExecutorService executor = executorRepository.getServiceExporterExecutor();
                 Future<?> future = executor.submit(() -> {
@@ -1091,12 +1092,9 @@ public class DubboBootstrap {
     }
 
     private void exportService(ServiceConfig sc) {
+        //重复serviceName校验
         if (exportedServices.containsKey(sc.getServiceName())) {
-            throw new IllegalStateException("There are multiple ServiceBean instances with the same service name: [" +
-                    sc.getServiceName() + "], instances: [" +
-                    exportedServices.get(sc.getServiceName()).toString() + ", " +
-                    sc.toString() + "]. Only one service can be exported for the same triple (group, interface, version), " +
-                    "please modify the group or version if you really need to export multiple services of the same interface.");
+            throw new IllegalStateException("There are multiple ServiceBean instances with the same service name: [" + sc.getServiceName() + "], instances: [" + exportedServices.get(sc.getServiceName()).toString() + ", " + sc.toString() + "]. Only one service can be exported for the same triple (group, interface, version), " + "please modify the group or version if you really need to export multiple services of the same interface.");
         }
         sc.export();
         exportedServices.put(sc.getServiceName(), sc);
@@ -1129,10 +1127,7 @@ public class DubboBootstrap {
 
             if (rc.shouldInit()) {
                 if (referAsync) {
-                    CompletableFuture<Object> future = ScheduledCompletableFuture.submit(
-                            executorRepository.getServiceExporterExecutor(),
-                            () -> cache.get(rc)
-                    );
+                    CompletableFuture<Object> future = ScheduledCompletableFuture.submit(executorRepository.getServiceExporterExecutor(), () -> cache.get(rc));
                     asyncReferringFutures.add(future);
                 } else {
                     cache.get(rc);
@@ -1194,8 +1189,7 @@ public class DubboBootstrap {
         publishMetadataToRemote(serviceInstance);
 
         logger.info("Start registering instance address to registry.");
-        getServiceDiscoveries().forEach(serviceDiscovery ->
-        {
+        getServiceDiscoveries().forEach(serviceDiscovery -> {
             calInstanceRevision(serviceDiscovery, serviceInstance);
             if (logger.isDebugEnabled()) {
                 logger.debug("Start registering instance address to registry" + serviceDiscovery.getUrl() + ", instance " + serviceInstance);
@@ -1245,8 +1239,7 @@ public class DubboBootstrap {
         this.serviceInstance = new DefaultServiceInstance(serviceName, host, port);
         setMetadataStorageType(serviceInstance, getMetadataType());
 
-        ExtensionLoader<ServiceInstanceCustomizer> loader =
-                ExtensionLoader.getExtensionLoader(ServiceInstanceCustomizer.class);
+        ExtensionLoader<ServiceInstanceCustomizer> loader = ExtensionLoader.getExtensionLoader(ServiceInstanceCustomizer.class);
         // FIXME, sort customizer before apply
         loader.getSupportedExtensionInstances().forEach(customizer -> {
             // customizes
@@ -1336,64 +1329,54 @@ public class DubboBootstrap {
     }
 
     public ApplicationConfig getApplication() {
-        ApplicationConfig application = configManager
-                .getApplication()
-                .orElseGet(() -> {
-                    ApplicationConfig applicationConfig = new ApplicationConfig();
-                    configManager.setApplication(applicationConfig);
-                    return applicationConfig;
-                });
+        ApplicationConfig application = configManager.getApplication().orElseGet(() -> {
+            ApplicationConfig applicationConfig = new ApplicationConfig();
+            configManager.setApplication(applicationConfig);
+            return applicationConfig;
+        });
 
         application.refresh();
         return application;
     }
 
     private MonitorConfig getMonitor() {
-        MonitorConfig monitor = configManager
-                .getMonitor()
-                .orElseGet(() -> {
-                    MonitorConfig monitorConfig = new MonitorConfig();
-                    configManager.setMonitor(monitorConfig);
-                    return monitorConfig;
-                });
+        MonitorConfig monitor = configManager.getMonitor().orElseGet(() -> {
+            MonitorConfig monitorConfig = new MonitorConfig();
+            configManager.setMonitor(monitorConfig);
+            return monitorConfig;
+        });
 
         monitor.refresh();
         return monitor;
     }
 
     private MetricsConfig getMetrics() {
-        MetricsConfig metrics = configManager
-                .getMetrics()
-                .orElseGet(() -> {
-                    MetricsConfig metricsConfig = new MetricsConfig();
-                    configManager.setMetrics(metricsConfig);
-                    return metricsConfig;
-                });
+        MetricsConfig metrics = configManager.getMetrics().orElseGet(() -> {
+            MetricsConfig metricsConfig = new MetricsConfig();
+            configManager.setMetrics(metricsConfig);
+            return metricsConfig;
+        });
         metrics.refresh();
         return metrics;
     }
 
     private ModuleConfig getModule() {
-        ModuleConfig module = configManager
-                .getModule()
-                .orElseGet(() -> {
-                    ModuleConfig moduleConfig = new ModuleConfig();
-                    configManager.setModule(moduleConfig);
-                    return moduleConfig;
-                });
+        ModuleConfig module = configManager.getModule().orElseGet(() -> {
+            ModuleConfig moduleConfig = new ModuleConfig();
+            configManager.setModule(moduleConfig);
+            return moduleConfig;
+        });
 
         module.refresh();
         return module;
     }
 
     private SslConfig getSsl() {
-        SslConfig ssl = configManager
-                .getSsl()
-                .orElseGet(() -> {
-                    SslConfig sslConfig = new SslConfig();
-                    configManager.setSsl(sslConfig);
-                    return sslConfig;
-                });
+        SslConfig ssl = configManager.getSsl().orElseGet(() -> {
+            SslConfig sslConfig = new SslConfig();
+            configManager.setSsl(sslConfig);
+            return sslConfig;
+        });
 
         ssl.refresh();
         return ssl;
@@ -1406,7 +1389,8 @@ public class DubboBootstrap {
 
     /**
      * Try reset dubbo status for new instance.
-     * @deprecated  For testing purposes only
+     *
+     * @deprecated For testing purposes only
      */
     @Deprecated
     public static void reset() {
@@ -1415,6 +1399,7 @@ public class DubboBootstrap {
 
     /**
      * Try reset dubbo status for new instance.
+     *
      * @deprecated For testing purposes only
      */
     @Deprecated

@@ -460,7 +460,7 @@ public class ApplicationConfig extends AbstractConfig {
 
     @Override
     public void refresh() {
-        super.refresh();
+        super.refresh();//刷新配置，使用反射
         appendEnvironmentProperties();
     }
 

@@ -25,7 +25,6 @@ import static org.apache.dubbo.common.constants.RegistryConstants.SERVICE_REGIST
 import static org.apache.dubbo.registry.Constants.DEFAULT_REGISTRY;
 
 public class ServiceDiscoveryRegistryFactory extends AbstractRegistryFactory {
-
     @Override
     protected Registry createRegistry(URL url) {
         if (SERVICE_REGISTRY_PROTOCOL.equalsIgnoreCase(url.getProtocol())) {

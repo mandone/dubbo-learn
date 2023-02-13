@@ -42,6 +42,9 @@ public class TokenFilter implements Filter {
     @Override
     public Result invoke(Invoker<?> invoker, Invocation inv)
             throws RpcException {
+        /**
+         * 因为这种方式是通过注册中心的，token信息会自动带到服务提供者端，所以可以正常调用
+         */
         String token = invoker.getUrl().getParameter(TOKEN_KEY);
         if (ConfigUtils.isNotEmpty(token)) {
             Class<?> serviceType = invoker.getInterface();

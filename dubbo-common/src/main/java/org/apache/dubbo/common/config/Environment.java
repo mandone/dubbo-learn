@@ -73,7 +73,7 @@ public class Environment extends LifecycleAdapter implements FrameworkExt {
             }
         });
 
-        this.externalConfiguration.setProperties(externalConfigurationMap);
+         this.externalConfiguration.setProperties(externalConfigurationMap);
         this.appExternalConfiguration.setProperties(appExternalConfigurationMap);
     }
 

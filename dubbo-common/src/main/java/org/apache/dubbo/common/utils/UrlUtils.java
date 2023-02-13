@@ -166,6 +166,11 @@ public class UrlUtils {
         if (StringUtils.isEmpty(address)) {
             throw new IllegalArgumentException("Address is not allowed to be empty.");
         }
+        /**
+         * //对; | 进行分割
+         * 多注册中心配置，竖号分隔表示同时连接多个不同注册中心，同一注册中心的多个集群地址用逗号分隔
+         *<dubbo:registry address="10.20.141.150:9090|10.20.154.177:9010" />
+         */
         String[] addresses = REGISTRY_SPLIT_PATTERN.split(address);
         if (addresses == null || addresses.length == 0) {
             throw new IllegalArgumentException("Addresses is not allowed to be empty."); //here won't be empty
