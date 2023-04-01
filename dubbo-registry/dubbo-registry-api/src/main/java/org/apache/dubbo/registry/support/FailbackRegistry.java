@@ -292,8 +292,8 @@ public abstract class FailbackRegistry extends AbstractRegistry {
 
     @Override
     public void subscribe(URL url, NotifyListener listener) {
-        super.subscribe(url, listener);
-        removeFailedSubscribed(url, listener);
+        super.subscribe(url, listener);//保存listener
+        removeFailedSubscribed(url, listener);//从缓存中删掉这个url历史订阅失败或者取消订阅失败的数据
         try {
             // Sending a subscription request to the server side
             doSubscribe(url, listener);
@@ -302,6 +302,7 @@ public abstract class FailbackRegistry extends AbstractRegistry {
 
             List<URL> urls = getCacheUrls(url);
             if (CollectionUtils.isNotEmpty(urls)) {
+                //调用listener方法org.apache.dubbo.registry.integration.RegistryProtocol.OverrideListener.notify
                 notify(url, listener, urls);
                 logger.error("Failed to subscribe " + url + ", Using cached list: " + urls + " from cache file: " + getUrl().getParameter(FILE_KEY, System.getProperty("user.home") + "/dubbo-registry-" + url.getHost() + ".cache") + ", cause: " + t.getMessage(), t);
             } else {

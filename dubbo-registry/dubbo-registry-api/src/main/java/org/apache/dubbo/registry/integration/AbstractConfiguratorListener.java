@@ -42,7 +42,16 @@ public abstract class AbstractConfiguratorListener implements ConfigurationListe
             GovernanceRuleRepository.class).getDefaultExtension();
 
     protected final void initWith(String key) {
-        ruleRepository.addListener(key, this);//org.apache.dubbo.demo.DemoService::.configurators
+        /**
+         * key:来源
+         * 服务发布：
+         *  dubbo-demo-annotation-provider.configurators    应用级
+         *  org.apache.dubbo.demo.DemoService::.configurators   服务接口级
+         * 服务引用
+         *  dubbo-demo-annotation-consumer.configurators    应用级
+         *  org.apache.dubbo.demo.DemoService::.configurators   服务接口级
+         */
+        ruleRepository.addListener(key, this);
         String rawConfig = ruleRepository.getRule(key, DynamicConfiguration.DEFAULT_GROUP);
         if (!StringUtils.isEmpty(rawConfig)) {
             genConfiguratorsFromRawRule(rawConfig);
@@ -75,6 +84,24 @@ public abstract class AbstractConfiguratorListener implements ConfigurationListe
     private boolean genConfiguratorsFromRawRule(String rawConfig) {
         try {
             // parseConfigurators will recognize app/service config automatically.
+            //override://0.0.0.0/org.apache.dubbo.demo.DemoService?category=dynamicconfigurators&configVersion=null&enabled=true&side=provider&weight=200
+            /**
+             * {
+             *     "scope": "service",
+             *     "key": "org.apache.dubbo.demo.DemoService",
+             *     "configs": [
+             *         {
+             *             "side": "provider",
+             *             "parameters": {
+             *                 "weight": 200
+             *             }
+             *         }
+             *     ]
+             * }
+             *
+             * override://0.0.0.0/org.apache.dubbo.demo.DemoService?
+             * category=dynamicconfigurators&configVersion=null&enabled=true&side=provider&weight=200
+             */
             configurators = Configurator.toConfigurators(ConfigParser.parseConfigurators(rawConfig))
                     .orElse(configurators);
         } catch (Exception e) {

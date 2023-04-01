@@ -16,9 +16,12 @@
  */
 package org.apache.dubbo.demo.provider;
 
+import com.alibaba.nacos.spring.context.annotation.config.EnableNacosConfig;
+import com.alibaba.nacos.spring.context.annotation.config.NacosPropertySource;
 import org.apache.dubbo.config.*;
 import org.apache.dubbo.config.bootstrap.DubboBootstrap;
 import org.apache.dubbo.demo.DemoService;
+import org.springframework.beans.factory.annotation.Configurable;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -56,13 +59,18 @@ public class Application {
         methodConfigs.add(methodConfig);
         service.setMethods(methodConfigs);
 
-
+        ConfigCenterConfig configCenterConfig = new ConfigCenterConfig();
+        configCenterConfig.setAddress("nacos://127.0.0.1:8848/");
+        configCenterConfig.setProtocol("nacos");
+        configCenterConfig.setNamespace("dubbo");
+        configCenterConfig.setAppExternalConfig(null);
         DubboBootstrap bootstrap = DubboBootstrap.getInstance();
         bootstrap.application(new ApplicationConfig("dubbo-demo-api-provider"))
                 .registry(new RegistryConfig("zookeeper://127.0.0.1:2181"))
 //                .registry(new RegistryConfig("zookeeper://127.0.0.1:2181;zookeeper://127.0.0.1:2182"))
 //                .registry(new RegistryConfig("nacos://127.0.0.1:8848"))
                 .service(service)
+                .configCenter(configCenterConfig)
 //                .exportAsync()
                 .start()
                 .await();

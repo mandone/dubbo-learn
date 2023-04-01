@@ -116,6 +116,13 @@ public class RegistryDirectory<T> extends DynamicDirectory<T> {
         registry.unsubscribe(url, this);
     }
 
+    /**
+     * 将 configurators 类型的 URL 转化为 Configurator，保存到 configurators 字段中；
+     * 将 router 类型的 URL 转化为 Router，并通过 routerChain.addRouters() 方法添加 routerChain 中保存；
+     * 将 provider 类型的 URL 转化为 Invoker 对象，并记录到 invokers 集合和 urlInvokerMap 集合中。
+     *
+     * @param urls The list of registered information , is always not empty. The meaning is the same as the return value of {@link org.apache.dubbo.registry.RegistryService#lookup(URL)}.
+     */
     @Override
     public synchronized void notify(List<URL> urls) {
         Map<String, List<URL>> categoryUrls = urls.stream()
@@ -361,6 +368,9 @@ public class RegistryDirectory<T> extends DynamicDirectory<T> {
      * @return
      */
     private URL mergeUrl(URL providerUrl) {
+        /**
+         * 动态配置 > Jvm 本地配置 > 消费者端配置(xml > Properties) > 提供者端配合
+         */
         providerUrl = ClusterUtils.mergeUrl(providerUrl, queryMap); // Merge the consumer side parameters
 
         providerUrl = overrideWithConfigurator(providerUrl);

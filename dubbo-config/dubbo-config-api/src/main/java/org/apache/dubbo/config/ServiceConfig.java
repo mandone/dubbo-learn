@@ -506,7 +506,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
 
         // 服务段host org.apache.dubbo.common.utils.NetUtils.getLocalHost()
         String host = findConfigedHosts(protocolConfig, registryURLs, map);
-        ////服务端ip ExtensionLoader.getExtensionLoader(Protocol.class).getExtension(name).getDefaultPort();
+        //服务端ip ExtensionLoader.getExtensionLoader(Protocol.class).getExtension(name).getDefaultPort();
         Integer port = findConfigedPorts(protocolConfig, name, map, protocolConfigNum);
         URL url = new URL(name, host, port, getContextPath(protocolConfig).map(p -> p + "/" + path).orElse(path), map);
 
@@ -589,6 +589,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                         //PROXY_FACTORY = ExtensionLoader.getExtensionLoader(ProxyFactory.class).getAdaptiveExtension();
                         //StubProxyFactoryWrapper -> JavassistProxyFactory
                         //addParameterAndEncoded() 对于url中参数值可能会包含有特殊字符(? & =)，所以通常会做一次url编码处理，避免冲突
+                        //registry -> exporter
                         Invoker<?> invoker = PROXY_FACTORY.getInvoker(ref, (Class) interfaceClass,
                                 registryURL.addParameterAndEncoded(EXPORT_KEY, url.toFullString()));
                         //将服务提供方invoker和元数据整合成一个封装类，该封装类实现Invoker类，通过export方法将Invoker一路透传下去

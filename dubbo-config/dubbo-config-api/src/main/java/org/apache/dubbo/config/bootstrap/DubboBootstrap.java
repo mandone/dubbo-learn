@@ -619,19 +619,23 @@ public class DubboBootstrap {
                 configCenters = configManager.getConfigCenters();
             }
         } else {
+            // 配置了多个配置中心
             for (ConfigCenterConfig configCenterConfig : configCenters) {
                 configCenterConfig.refresh();
+                // 检查配置中心的配置是否合法
                 ConfigValidationUtils.validateConfigCenterConfig(configCenterConfig);
             }
         }
 
         if (CollectionUtils.isNotEmpty(configCenters)) {
+            // 创建CompositeDynamicConfiguration对象，用于组装多个DynamicConfiguration对象
             CompositeDynamicConfiguration compositeDynamicConfiguration = new CompositeDynamicConfiguration();
             for (ConfigCenterConfig configCenter : configCenters) {
                 compositeDynamicConfiguration.addConfiguration(prepareEnvironment(configCenter));
             }
             environment.setDynamicConfiguration(compositeDynamicConfiguration);
         }
+        // 刷新所有AbstractConfig配置
         configManager.refreshAll();
     }
 
@@ -1021,12 +1025,15 @@ public class DubboBootstrap {
     /* serve for builder apis, end */
 
     private DynamicConfiguration prepareEnvironment(ConfigCenterConfig configCenter) {
+        // 检查ConfigCenterConfig是否合法
         if (configCenter.isValid()) {
+            // 检查ConfigCenterConfig是否已初始化，这里不能重复初始化
             if (!configCenter.checkOrUpdateInited()) {
                 return null;
             }
             //配置 -> url
             DynamicConfiguration dynamicConfiguration = getDynamicConfiguration(configCenter.toUrl());
+            // 从配置中心获取externalConfiguration和appExternalConfiguration，并进行覆盖
             String configContent = dynamicConfiguration.getProperties(configCenter.getConfigFile(), configCenter.getGroup());
 
             String appGroup = getApplication().getName();

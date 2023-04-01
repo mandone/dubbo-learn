@@ -37,10 +37,15 @@ public class Environment extends LifecycleAdapter implements FrameworkExt {
     private static final Logger logger = LoggerFactory.getLogger(Environment.class);
     public static final String NAME = "environment";
 
+    //加载在JVM或者环境变量指定的dubbo.properties配置文件 配置的key为dubbo.properties.file ,如果未指定则查找类路径下的dubbo.properties
     private final PropertiesConfiguration propertiesConfiguration;
+    //系统JVM参数的配置无需我们来加载到内存,系统已经加载好了放到了System中,我们只需System.getProperty(key)来调用
     private final SystemConfiguration systemConfiguration;
+    //系统环境变量的配置,无需我们来加载到内存,系统已经加载好了放到了System中,我们只需System.getenv(key)来获取就可以
     private final EnvironmentConfiguration environmentConfiguration;
+    //从远程配置中心的全局配置获取对应配置
     private final InmemoryConfiguration externalConfiguration;
+    ///从远程配置中心的应用配置获取对应配置
     private final InmemoryConfiguration appExternalConfiguration;
 
     private CompositeConfiguration globalConfiguration;

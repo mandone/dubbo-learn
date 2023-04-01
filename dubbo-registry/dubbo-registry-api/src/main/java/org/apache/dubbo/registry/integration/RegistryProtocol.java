@@ -193,8 +193,31 @@ public class RegistryProtocol implements Protocol {
                 registryUrl,
                 registered));
     }
-
     @Override
+    /**
+     * 针对Listener机制，目的在于能动态感知所监听的URL变化，并且针对url协议执行相应的逻辑，例如
+     * {@link org.apache.dubbo.registry.integration.RegistryDirectory#notify()}
+     * 至于如何感知取决于注册监听的位置,如
+     * {@link OverrideListener} 在该方法中执行registry.subscribe(overrideSubscribeUrl, overrideSubscribeListener);
+     * 这里我们使用的是nacos注册中心，最终就会将overrideSubscribeListener转变为Nacos自有的Listener
+     *      EventListener nacosListener = listeners.computeIfAbsent(listener, k -> {
+     *             EventListener eventListener = event -> {
+     *                 if (event instanceof NamingEvent) {
+     *                     NamingEvent e = (NamingEvent) event;
+     *                     List<Instance> instances = e.getInstances();
+     *                     if (isServiceNamesWithCompatibleMode(url)) {
+     *                         NacosInstanceManageUtil.initOrRefreshServiceInstanceList(serviceName, instances);
+     *                         instances = NacosInstanceManageUtil.getAllCorrespondingServiceInstanceList(serviceName);
+     *                     }
+     *                     notifySubscriber(url, serviceName, listener, instances);
+     *                 }
+     *             };
+     *             return eventListener;
+     *         });
+     * 最终注册到nacos的监听器列表中，如有变动，就会触发notify，告知监听该事件的监听器，回调到我们框架中的notify方法，从而执行我们自己的逻辑
+     *
+     * 如果想了解详细的监听器机制，可以从NotifyListener接口着手，分析实现类，以及该Listener在哪里进行监听注册，在查看其notify方法，分析监听结果处理
+     */
     public <T> Exporter<T> export(final Invoker<T> originInvoker) throws RpcException {
         URL registryUrl = getRegistryUrl(originInvoker);
         // url to export locally
@@ -204,21 +227,47 @@ public class RegistryProtocol implements Protocol {
         // FIXME When the provider subscribes, it will affect the scene : a certain JVM exposes the service and call
         //  the same service. Because the subscribed is cached key with the name of the service, it causes the
         //  subscription information to cover.
+        //provider://192.168.0.102:20880/org.apache.dubbo.demo.DemoService?anyhost=true&application=dubbo-demo-api-provider
+        // &bind.ip=192.168.0.102&bind.port=20880&category=configurators&check=false&default=true&deprecated=false&dubbo=2.0.2
+        // &dynamic=true&generic=false&interface=org.apache.dubbo.demo.DemoService&methods=sayHiAsync,sayHello,sayHelloAsync,sayHi
+        // &pid=24916&proxy=jdk&release=&sayHello.0.callback=false&sayHello.retries=3
+        // &service.name=ServiceBean:/org.apache.dubbo.demo.DemoService&side=provider&timestamp=1676416058841
+        //provider:xxx  category=configurators
         final URL overrideSubscribeUrl = getSubscribedOverrideUrl(providerUrl);
+        //对订阅该provider的地址添加监听器，它负责监听对应服务的动态配置变化，并且根据动态配置中心的参数重写服务URL，使用协议为provider://xxx
         final OverrideListener overrideSubscribeListener = new OverrideListener(overrideSubscribeUrl, originInvoker);
+        //添加到监听器映射列表，一个地址对应一个监听器，用来监听overrideSubscribeUrl变化事件
         overrideListeners.put(overrideSubscribeUrl, overrideSubscribeListener);
+        /**
+         * 添加ServiceConfiguration监听器，如有配置更新，需覆盖provider的地址
+         * Dubbo 2.7 及以上提供的新的订阅方式。
+         * 通过 ProviderConfigurationListener 和 ServiceConfigurationListener 监听器来监听动态配置，处理应用级别和服务级别的配置。
+         * 与此对应的服务引用的两个监听器在RegistryDirectory类种实现的两个内部监听器类ReferenceConfigurationListener和ConsumerConfigurationListener
+         * 加载 ProviderConfigurationListener 的配置，
+         * 后加载ServiceConfigurationListeners的配置。即后加载的配置会覆盖之前加载的配置，故服务级别 > 应用级别 。
+         * 应用配置和服务级别配置的优先级为： 服务级别 > 应用级别
+         * 动态配置有 override 和 absent 两种协议，也可以通过 SPI 的方式进行扩展。
+         *
+         * 示例：
+         *  1、 禁用某个 Provider，临时剔除某个 Provider节点
+         *      override://10.20.153.10/com.foo.BarService?category=configurators&dynamic=false&disabled=true
+         *  2、调整某个 Provider 的权重为 200
+         *      override://10.20.153.10/com.foo.BarService?category=configurators&dynamic=false&weight=200
+         *  3、服务降级，通常用于临时屏蔽某个出错的非关键服务
+         *      override://0.0.0.0/com.foo.BarService?category=configurators&dynamic=false&application=foo&mock=force:return+null
+         */
 
         providerUrl = overrideUrlWithConfig(providerUrl, overrideSubscribeListener);
-        // export invoker
+        // 对provider进行服务暴露，同注册中心不同，这里是指在本地利用netty将服务开启
         final ExporterChangeableWrapper<T> exporter = doLocalExport(originInvoker, providerUrl);
 
-        // url to registry
+        // 将服务注册到注册中心 ListenerRegistryWrapper -> FailbackRegistry -> ZookeeperRegistry#doRegister();
         final Registry registry = getRegistry(originInvoker);
         final URL registeredProviderUrl = getUrlToRegistry(providerUrl, registryUrl);
 
         // decide if we need to delay publish
         boolean register = providerUrl.getParameter(REGISTER_KEY, true);
-        if (register) {
+        if (register) {//ListenerRegistryWrapper -> FailbackRegistry -> NacosRegistry#doRegistry()
             registry.register(registeredProviderUrl);
         }
 
@@ -230,6 +279,21 @@ public class RegistryProtocol implements Protocol {
         exporter.setSubscribeUrl(overrideSubscribeUrl);
 
         // Deprecated! Subscribe to override rules in 2.6.x or before.
+        /**
+         * org.apache.dubbo.registry.integration.RegistryDirectory#notify(java.util.List)
+         *
+         * 注册成功后需要保存监听，这里会对provider地址进行订阅，传入一个OverrideListener进行监听，以便能够动态感知到provider配置的变化
+         * 当我们在注册中心的 configurators 目录中添加 override（或 absent）协议的 URL 时，Registry 会收到注册中心的通知，回调注册在其上的 NotifyListener，其中就包括 RegistryDirectory。RegistryDirectory.notify() 处理 providers、configurators 和 routers 目录变更的流程
+         * 这里category=configurators，表示该 URL 为动态配置类型。
+         *  override，表示采用覆盖方式。Dubbo 支持 override 和 absent 两种协议，我们也可以通过 SPI 的方式进行扩展。
+         *  0.0.0.0，表示对所有 IP 生效。如果只想覆盖某个特定 IP 的 Provider 配置，可以使用该 Provider 的具体 IP。
+         *  org.apache.dubbo.demo.DemoService，表示只对指定服务生效。
+         *  category=configurators，表示该 URL 为动态配置类型。
+         *  dynamic=false，表示该 URL 为持久数据，即使注册该 URL 的节点退出，该 URL 依旧会保存在注册中心。
+         *  enabled=true，表示该 URL 的覆盖规则已生效。
+         *  application=dubbo-demo-api-consumer，表示只对指定应用生效。如果不指定，则默认表示对所有应用都生效。
+         *  timeout=1000，表示将满足以上条件 Provider URL 中的 timeout 参数值覆盖为 1000。如果想覆盖其他配置，可以直接以参数的形式添加到 override URL 之上。
+         */
         registry.subscribe(overrideSubscribeUrl, overrideSubscribeListener);
 
         notifyExport(exporter);
@@ -248,9 +312,12 @@ public class RegistryProtocol implements Protocol {
     }
 
     private URL overrideUrlWithConfig(URL providerUrl, OverrideListener listener) {
+        //从配置中心获取应用级别配置并且覆盖
         providerUrl = providerConfigurationListener.overrideUrl(providerUrl);
+        //创建服务接口级监听器 org.apache.dubbo.demo.DemoService::configurators
         ServiceConfigurationListener serviceConfigurationListener = new ServiceConfigurationListener(providerUrl, listener);
         serviceConfigurationListeners.put(providerUrl.getServiceKey(), serviceConfigurationListener);
+        //从配置中心获取服务级配置并且覆盖
         return serviceConfigurationListener.overrideUrl(providerUrl);
     }
 
@@ -427,6 +494,8 @@ public class RegistryProtocol implements Protocol {
     }
 
     private URL getSubscribedOverrideUrl(URL registeredProviderUrl) {
+        //执行set操作会创建一个新的URL，不会影响原来的数
+        //return new URL(protocol, username, password, host, port, path, getParameters());
         return registeredProviderUrl.setProtocol(PROVIDER_PROTOCOL)
                 .addParameters(CATEGORY_KEY, CONFIGURATORS_CATEGORY, CHECK_KEY, String.valueOf(false));
     }
@@ -438,6 +507,12 @@ public class RegistryProtocol implements Protocol {
      * @return
      */
     private URL getProviderUrl(final Invoker<?> originInvoker) {
+        /**
+         * Invoker<?> invoker =
+         * PROXY_FACTORY.getInvoker(ref, (Class) interfaceClass,registryURL.addParameterAndEncoded(EXPORT_KEY, url.toFullString()));
+         *
+         * 在这里重新将dubbo 协议地址读取出来并解码
+         */
         String export = originInvoker.getUrl().getParameterAndDecoded(EXPORT_KEY);
         if (export == null || export.length() == 0) {
             throw new IllegalArgumentException("The registry export url is null! registry: " + originInvoker.getUrl());
@@ -583,7 +658,7 @@ public class RegistryProtocol implements Protocol {
             return;
         }
         ExtensionLoader.getExtensionLoader(GovernanceRuleRepository.class).getDefaultExtension()
-            .removeListener(application + CONFIGURATORS_SUFFIX, providerConfigurationListener);
+                .removeListener(application + CONFIGURATORS_SUFFIX, providerConfigurationListener);
     }
 
     @Override
@@ -706,7 +781,7 @@ public class RegistryProtocol implements Protocol {
             newUrl = getConfiguredInvokerUrl(serviceConfigurationListeners.get(originUrl.getServiceKey())
                     .getConfigurators(), newUrl);
             if (!newUrl.equals(currentUrl)) {
-                if(newUrl.getParameter(Constants.NEED_REEXPORT, true)) {
+                if (newUrl.getParameter(Constants.NEED_REEXPORT, true)) {
                     RegistryProtocol.this.reExport(originInvoker, newUrl);
                 }
                 LOGGER.info("exported provider url changed, origin url: " + originUrl +
@@ -812,7 +887,7 @@ public class RegistryProtocol implements Protocol {
 
         @Override
         public void unexport() {
-            if (!unexported.compareAndSet(false,true)) {
+            if (!unexported.compareAndSet(false, true)) {
                 return;
             }
 
